@@ -1,6 +1,6 @@
 {
   "name": "acl-firestore-backend",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "",
   "main": "build/src/backend.js",
   "types": "build/src/backend.d.ts",
