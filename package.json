@@ -13,11 +13,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "check": "gts check",
     "clean": "gts clean",
-    "compile": "tsc -p .",
+    "build": "tsc -p .",
     "fix": "gts fix",
-    "prepare": "npm run compile",
-    "pretest": "npm run compile",
-    "posttest": "npm run check"
+    "prepublishOnly": "yarn run build",
+    "posttest": "yarn run check"
   },
   "devDependencies": {
     "gts": "^1.1.0",
