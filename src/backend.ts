@@ -1,9 +1,16 @@
 import assert from 'assert';
+import { Backend } from 'acl';
+import Promise from 'bluebird';
 import * as admin from 'firebase-admin';
 
+const noop = () => {};
 const BUCKET_FIELD = '@@bucket';
 
-type Callback = (err?: Error | null, result?: any) => void;
+type Callback = (err: Error | null, result?: any) => void;
+
+type Value = number | string;
+
+type Values = Value | Value[];
 
 type Result = string[];
 
@@ -21,11 +28,11 @@ interface Operation {
   data?: Data;
 }
 
-const getId = (bucket: string, key: string) => [bucket, key].join('.');
+const getId = (bucket: string, key: Value) => [bucket, String(key)].join('.');
 
 const getBucketFromId = (id: string) => id.split('.').shift() || '';
 
-const makeArray = (arr: string | string[]): string[] =>
+const makeArray = (arr: Value | Value[]): Value[] =>
   Array.isArray(arr) ? arr : [arr];
 
 const snapToValues = (docSnap: admin.firestore.DocumentSnapshot) => {
@@ -34,7 +41,7 @@ const snapToValues = (docSnap: admin.firestore.DocumentSnapshot) => {
   return Object.keys(data);
 };
 
-export default class FirestoreBackend {
+export default class FirestoreBackend implements Backend<Operation[]> {
   constructor(
     private readonly store: admin.firestore.Firestore,
     private readonly collectionName: string
@@ -44,7 +51,7 @@ export default class FirestoreBackend {
     return this.store.collection(this.collectionName);
   }
 
-  private bucketIds(bucket: string, keys: string[]) {
+  private bucketIds(bucket: string, keys: Value[]) {
     return keys.map(key => getId(bucket, key));
   }
 
@@ -52,7 +59,7 @@ export default class FirestoreBackend {
     return [];
   }
 
-  end(ops: Operation[], cb: Callback) {
+  end(ops: Operation[], cb: Callback = noop) {
     this.store
       .runTransaction(async tx => {
         const collection = this.collection;
@@ -120,19 +127,19 @@ export default class FirestoreBackend {
           }
         }
       })
-      .then(() => cb(), cb);
+      .then(() => cb(null), cb);
   }
 
-  clean(cb: Callback) {
+  clean(cb: Callback = noop) {
     if (process.env.NODE_ENV === 'test') {
-      return cb();
+      return cb(null);
     }
     throw new Error(
       '`clean` method will never be implemented in FirestoreBackend'
     );
   }
 
-  get(bucket: string, key: string, cb: Callback) {
+  get(bucket: string, key: Value, cb: Callback = noop) {
     (async () => {
       const id = getId(bucket, key);
       const docSnap = await this.collection.doc(id).get();
@@ -169,7 +176,7 @@ export default class FirestoreBackend {
     })().catch(cb);
   }
 
-  union(bucket: string, keys: string[], cb: Callback) {
+  union(bucket: string, keys: Value[], cb: Callback = noop) {
     (async () => {
       const docRefs = this.bucketIds(bucket, keys).map(id =>
         this.collection.doc(id)
@@ -186,12 +193,7 @@ export default class FirestoreBackend {
     })().catch(cb);
   }
 
-  add(
-    ops: Operation[],
-    bucket: string,
-    key: string,
-    values: string[] | string
-  ) {
+  add(ops: Operation[], bucket: string, key: Value, values: Values) {
     const id = getId(bucket, key);
     const data = makeArray(values).reduce(
       (data, val) => {
@@ -203,7 +205,7 @@ export default class FirestoreBackend {
     ops.push({ id, data, type: 'update' });
   }
 
-  del(ops: Operation[], bucket: string, keys: string | string[]) {
+  del(ops: Operation[], bucket: string, keys: Values) {
     for (const key of makeArray(keys)) {
       ops.push({
         type: 'delete',
@@ -212,12 +214,7 @@ export default class FirestoreBackend {
     }
   }
 
-  remove(
-    ops: Operation[],
-    bucket: string,
-    key: string,
-    values: string | string[]
-  ) {
+  remove(ops: Operation[], bucket: string, key: Value, values: Values) {
     const id = getId(bucket, key);
     const data = makeArray(values).reduce(
       (data, val) => {
@@ -227,5 +224,29 @@ export default class FirestoreBackend {
       {} as Data
     );
     ops.push({ id, data, type: 'update' });
+  }
+
+  // ACL package will create the following methods dynamically.
+  // I don't know why @types/acl define these methods in Backend interface.
+  // It's useless and ignorance.
+
+  endAsync(ops: Operation[], cb: Callback = noop): Promise<void> {
+    return Promise.resolve();
+  }
+
+  getAsync(bucket: string, key: Value, cb: Callback = noop): Promise<void> {
+    return Promise.resolve();
+  }
+
+  cleanAsync(cb?: (err?: Error) => void): Promise<void> {
+    return Promise.resolve();
+  }
+
+  unionAsync(
+    bucket: string,
+    key: Value[],
+    cb?: (error: Error | undefined, results: any[]) => void
+  ): Promise<any[]> {
+    return Promise.resolve([]);
   }
 }
