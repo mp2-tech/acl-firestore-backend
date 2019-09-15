@@ -4,5 +4,9 @@
     "exclude": [
       "**/*.json"
     ]
+  },
+  "rules": {
+    "no-any": false,
+    "no-default-export": false
   }
 }
