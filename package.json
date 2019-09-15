@@ -37,7 +37,5 @@
     "acl": "^0.4.11",
     "firestore-admin": "^1.3.0"
   },
-  "dependencies": {
-    "jsondiffpatch": "^0.3.11"
-  }
+  "dependencies": {}
 }
